@@ -584,7 +584,7 @@ function simulateHumanClick(targetElement, inputElement) {
   }
 }
 
-async function autoSelectMCQ(mcqViewElement, answerElements, aiAnswerString, questionIndex, aiAnswerDisplay) {
+async function autoSelectMCQ(mcqViewElement, answerElements, aiAnswerString, questionIndex, aiAnswerDisplay, isStealth = false) {
   if (!answerElements || answerElements.length === 0 || !aiAnswerString) return;
 
   const delay = Math.min(questionIndex * 250 + Math.floor(Math.random() * 100) + 100, 2500);
@@ -642,7 +642,7 @@ async function autoSelectMCQ(mcqViewElement, answerElements, aiAnswerString, que
   }
 }
 
-async function autoSelectMatching(omvElement, aiAnswerString, questionIndex, aiAnswerDisplay) {
+async function autoSelectMatching(omvElement, aiAnswerString, questionIndex, aiAnswerDisplay, isStealth = false) {
   if (!omvElement || !omvElement.shadowRoot || !aiAnswerString) return;
   const sr = omvElement.shadowRoot;
   const pairs = aiAnswerString.split(" /// ");
@@ -798,6 +798,11 @@ async function processSingleQuestion(mcqViewElement, index, apiKey, preFetchedAi
   }
 
   const { uiContainer, aiAnswerDisplay, refreshButton } = createAiAssistantUI(uiContainerId, index);
+
+  const stealthSync = await chrome.storage.sync.get(["stealthMode"]);
+  if (stealthSync && stealthSync.stealthMode === true) {
+    uiContainer.style.display = "none";
+  }
 
   const isMatching = mcqViewElement && mcqViewElement.tagName && mcqViewElement.tagName.toLowerCase() === "object-matching-view";
   let questionText, answerElements, questionTextElement, answerTexts;

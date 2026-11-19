@@ -129,6 +129,7 @@ Al hacer clic en el icono de la extensión podrás ajustar las siguientes opcion
 | **Gemini Model** | `gemini-3.5-flash-lite` | Modelo de IA seleccionado para inferencia. |
 | **Show AI Answers** | `Activado` | Muestra un cuadro azul debajo de la pregunta con el desglose del análisis de la IA. |
 | **Auto-select Answers** | `Activado` | Si está activo, hace clic automáticamente en las respuestas. Si lo desactivas, solo muestra el texto como sugerencia. |
+| **Modo Sigilo** | `Desactivado` | Oculta los recuadros azules de la IA, el botón flotante y los bordes verdes. Marca las opciones silenciosamente sin dejar pistas visuales en pantalla. |
 | **Process on Page Switch** | `Activado` | Detecta si cambiaste de diapositiva o bloque y analiza el nuevo contenido. |
 
 ---

@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const statusDiv = document.getElementById("status");
   const showAnswersToggle = document.getElementById("showAnswersToggle");
   const autoSelectToggle = document.getElementById("autoSelectToggle");
+  const stealthModeToggle = document.getElementById("stealthModeToggle");
   const processOnSwitchToggle = document.getElementById("processOnSwitchToggle");
   const autoAdvanceToggle = document.getElementById("autoAdvanceToggle");
 
@@ -15,6 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "geminiModel",
       "showAnswers",
       "autoSelectAnswers",
+      "stealthMode",
       "processOnSwitch",
       "autoAdvance",
     ],
@@ -39,6 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       showAnswersToggle.checked = typeof result.showAnswers === "boolean" ? result.showAnswers : true;
       autoSelectToggle.checked = typeof result.autoSelectAnswers === "boolean" ? result.autoSelectAnswers : true;
+      stealthModeToggle.checked = result.stealthMode === true;
       processOnSwitchToggle.checked = typeof result.processOnSwitch === "boolean" ? result.processOnSwitch : true;
       autoAdvanceToggle.checked = typeof result.autoAdvance === "boolean" ? result.autoAdvance : false;
 
@@ -57,6 +60,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   autoSelectToggle.addEventListener("change", () => {
     chrome.storage.sync.set({ autoSelectAnswers: autoSelectToggle.checked });
+  });
+
+  stealthModeToggle.addEventListener("change", () => {
+    const isStealth = stealthModeToggle.checked;
+    chrome.storage.sync.set({ stealthMode: isStealth });
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs.length > 0 && tabs[0].id) {
+        chrome.tabs.sendMessage(
+          tabs[0].id,
+          { action: "toggleStealthMode", stealthMode: isStealth },
+          () => void chrome.runtime.lastError
+        );
+      }
+    });
   });
 
   processOnSwitchToggle.addEventListener("change", () => {

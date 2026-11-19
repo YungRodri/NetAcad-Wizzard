@@ -307,6 +307,27 @@ injectFloatingButton();
 
 // Listener for messages from the popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "toggleStealthMode") {
+    const isStealth = request.stealthMode === true;
+    const btn = document.getElementById(FLOATING_BTN_ID);
+    if (btn) {
+      btn.style.display = isStealth ? "none" : "";
+    }
+    const hideOrShowUIs = (root) => {
+      try {
+        root.querySelectorAll(".netacad-ai-assistant-ui").forEach((el) => {
+          el.style.display = isStealth ? "none" : "";
+        });
+        root.querySelectorAll("*").forEach((el) => {
+          if (el.shadowRoot) hideOrShowUIs(el.shadowRoot);
+        });
+      } catch (e) {}
+    };
+    hideOrShowUIs(document);
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (request.action === "processPage") {
     console.debug(
       "NetAcad Scraper (content.js): Received processPage message from popup.",
