@@ -1,80 +1,202 @@
-![ccnap_resize](https://github.com/user-attachments/assets/0cb6200c-c304-42fa-ad0f-fa68fa0c4fac)
+# 🧙‍♂️ NetAcad-Wizzard
 
-# NetAcad Assistant
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Manifest V3](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-green.svg)](manifest.json)
+[![Gemini API](https://img.shields.io/badge/AI-Google_Gemini-orange.svg)](https://ai.google.dev/)
 
-NetAcad Assistant is a browser extension designed to assist users on Cisco NetAcad by automatically scraping quiz questions and suggesting answers using Google Gemini AI. It streamlines the process of answering dynamically loaded NetAcad quizzes, saving time and reducing manual effort.
+Asistente y resolvedor automatizado de cuestionarios para **Cisco NetAcad** y **Skills For All**, potenciado por la inteligencia artificial de **Google Gemini**.
 
-## What Does It Do?
-- **Scrapes** multiple-choice questions and answer options from NetAcad quiz pages (even when questions are loaded dynamically via AJAX or iframes).
-- **Batches** all questions on a page and sends them in a single request to the Gemini AI API, reducing API usage and improving efficiency.
-- **Displays** AI-suggested answers directly below each question, with support for both single-answer and multi-answer (checkbox/select-all) questions.
-- **Allows** users to refresh the AI answer for any individual question.
-- **Automatically detects** when new questions are loaded (e.g., when navigating between questions) and re-scrapes as needed.
+> 🌐 **Idiomas / Languages:** [Español](#-versión-en-español) | [English](#-english-version)
 
-This will allow you to:
-- **Saves time:** No more copying and pasting questions into AI chatbots or searching for answers manually.
-- **Reduces API costs:** By batching questions, it minimizes the number of requests to the Gemini API.
-- **Works with dynamic content:** MutationObserver ensures the extension adapts to NetAcad's dynamic page loads and iframes.
-- **User-friendly:** Clean UI, easy setup, and one-click operation.
-> Disable this plugin if you don't want see the answer and answering the question on your own which is a good thing instead of using this tool.
+---
 
-## Technologies Used
-- **JavaScript (ES6+)**
-- **Chrome Extensions API (Manifest V3)**
-- **Shadow DOM and MutationObserver** for monitoring changes from dynamic pages and scraping
-- **Google Gemini AI API** for answer suggestions
+## 🇪🇸 Versión en Español
 
-## How to Install and Use
-1. **Clone or Download** this repository.
-2. **Get a Google Gemini API Key:**
-   - Visit [Google AI Studio](https://aistudio.google.com/app/apikey) and generate an API key.
-3. **Load the Extension in Chrome:**
-   - Go to `chrome://extensions/`.
-   - Enable "Developer mode" (top right).
-   - Click "Load unpacked" and select the project folder.
-4. **Set Your API Key:**
-   - Click the extension icon.
-   - Enter your Gemini API key in the popup and click "Save API Key".
-5. **Use on NetAcad:**
-   - Navigate to a NetAcad quiz page.
-   - Click the extension icon and press "Process Questions on this Page".
-   - Alternatively, use the keyboard shortcut **Alt+Shift+Q** (or **Option+Shift+Q** on Mac) to trigger processing without opening the popup.
-   - The extension will scrape all questions, send them to Gemini AI, and display suggested answers below each question.
-   - You can also refresh the AI answer for any question individually.
+### 🌟 ¿Qué es NetAcad-Wizzard?
 
-## How It Works
-- **Content Scripts:** Injected into all frames on NetAcad pages, they detect and scrape questions from the page (including inside iframes).
-- **Batching:** All questions are sent in a single API call to Gemini, which returns a JSON array of answers. This reduces API usage and speeds up processing.
-- **MutationObserver:** Watches for changes in the quiz area (e.g., when navigating to a new question) and automatically re-scrapes and updates answers.
-- **Multi-Answer Support:** If a question requires multiple answers (e.g., checkboxes), the AI is instructed to return all correct answers, and the UI displays them as a list.
-- **Manual Refresh:** Each question's UI includes a "Refresh AI Answer" button for on-demand, per-question AI calls.
+**NetAcad-Wizzard** es una extensión de navegador (Manifest V3) creada para ahorrar tiempo y automatizar la resolución de evaluaciones y cuestionarios dinámicos en las plataformas de Cisco (**NetAcad** y **Skills For All**). 
 
-## API Key & Privacy
-- Your Gemini API key is stored locally in your browser's extension storage and is **never shared** with anyone except Google Gemini API.
-- You can remove or change your API key at any time via the extension popup.
+A diferencia de soluciones básicas que solo muestran texto, NetAcad-Wizzard es capaz de atravesar componentes complejos en **Shadow DOM** e *iframes*, enviar todas las preguntas juntas a la API de Gemini para ahorrar tokens, y **marcar automáticamente las respuestas correctas en pantalla**.
 
-## Planned Improvements
-- **Support for More Question Types:**
-  - Add detection and AI support for fill-in-the-blank, drag-and-drop, matching, and other interactive or open-ended question formats.
-  - Improve answer extraction and display for these new types.
-- **Improved Question Auto-Detection:**
-  - Make the question/answer scraping logic more robust to handle a wider variety of NetAcad layouts and future changes.
-  - Expand compatibility to similar e-learning platforms with different DOM structures.
-- **Smarter AI Prompts:**
-  - Dynamically adjust prompts based on question type for better answer accuracy.
-- **User Feedback and Customization:**
-  - Allow users to report missed questions or suggest improvements directly from the extension.
-- **Visiblity**
-  - Gives the ability for the user to show or not show the answer.
+---
 
-## Examples
-![Screenshot 2025-06-04 224057](https://github.com/user-attachments/assets/04809880-60f5-4e72-a66a-5412529b1d81)
+### ⚡ Características y Funciones Extra
 
-![Screenshot 2025-06-04 224126](https://github.com/user-attachments/assets/53845149-6347-42cc-88c6-096f35fd7d88)
+- 🎯 **Auto-Select de Respuestas:** Selecciona y hace clic automáticamente en las opciones correctas. Compatible con:
+  - Preguntas de opción única (*Single choice / Radio buttons*).
+  - Preguntas de opción múltiple (*Multiple choice / Checkboxes*).
+  - Preguntas de emparejar (*Object-matching / Drag & drop*).
+- 🥷 **Modo Sigilo (*Stealth Mode*):** Al activarlo, la extensión oculta completamente los recuadros azules de la IA, el botón flotante y los bordes verdes. Marca las opciones de forma silenciosa e invisible sin dejar pistas en pantalla.
+- 🛡️ **Auto-Fallback para Error 429 (Cuota de Google):** Google Gemini Free Tier limita cada modelo a 500 peticiones diarias. Si el modelo en uso alcanza el límite diario (Error 429), la extensión **salta automáticamente** al siguiente modelo disponible (`gemini-3.5-flash-lite`, `gemini-3.5-flash`, etc.) sin detener tu examen.
+- 🚀 **Marcado Ultra Rápido:** Intervalo optimizado (~250 ms por respuesta) para que las preguntas se contesten de forma fluida y natural sin congelar el navegador.
+- 📦 **Procesamiento por Lotes (*Batching*):** Agrupa todas las preguntas visibles en una sola consulta JSON a Gemini, reduciendo drásticamente el consumo de peticiones y acelerando la respuesta.
+- ✋ **Control de Entrega Seguro:** La extensión marca las respuestas, pero **nunca presiona el botón final de enviar examen**, dándote control total antes de calificar.
+- 🖱️ **Botón Flotante Arrastrable:** Incluye un botón circular "AI" que puedes mover libremente a cualquier parte de la pantalla para que no tape diagramas ni enunciados.
 
+---
 
-## Contributing
-Pull requests and suggestions are welcome! Please open an issue or PR for bug fixes, improvements, or new features.
+### ⚙️ Cómo Configurar la Extensión
 
-## License
-MIT License. See [LICENSE](LICENSE) for details. 
+#### 1. Obtener una API Key gratuita de Google Gemini:
+1. Entra a [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. Inicia sesión con cualquier cuenta de Google.
+3. Haz clic en el botón azul **"Create API key"** (Crear clave de API).
+4. Copia la clave generada (empieza por `AIzaSy...`).
+
+#### 2. Guardar tu clave en la extensión:
+1. Haz clic en el icono del mago/extensión en la barra de extensiones de tu navegador.
+2. Pega tu API Key en el campo **Gemini API Key**.
+3. Selecciona el modelo recomendado (**`gemini-3.5-flash-lite`**).
+4. Configura tus preferencias (por ejemplo, activa el **Modo Sigilo** si no quieres que se vean los cuadros de asistencia).
+5. Haz clic en **"Save Settings"**.
+
+---
+
+### 📦 Guía de Instalación Paso a Paso
+
+Funciona en cualquier navegador basado en Chromium: **Google Chrome**, **Microsoft Edge**, **Brave**, **Opera**, etc.
+
+1. **Descarga el código:**
+   - Puedes clonar el repositorio:
+     ```bash
+     git clone https://github.com/YungRodri/NetAcad-Wizzard.git
+     ```
+   - O descargarlo en ZIP haciendo clic en el botón verde **Code > Download ZIP** y descomprimiéndolo en una carpeta.
+2. **Abre la gestión de extensiones de tu navegador:**
+   - Chrome / Brave: escribe `chrome://extensions/` en la barra de direcciones.
+   - Edge: escribe `edge://extensions/`.
+3. **Activa el "Modo de desarrollador":**
+   - Es el interruptor ubicado en la esquina superior derecha.
+4. **Carga la extensión:**
+   - Haz clic en el botón **"Cargar descomprimida"** (*Load unpacked*).
+   - Selecciona la carpeta donde descargaste este proyecto (la que contiene `manifest.json`).
+5. **Fija la extensión:**
+   - Haz clic en el icono del rompecabezas 🧩 en la barra de tu navegador y fija **NetAcad-Wizzard** para abrir sus ajustes cuando quieras.
+
+---
+
+### 🚀 Modo de Uso Diario
+
+Cuando estés dentro de un examen o cuestionario de NetAcad / SkillsForAll:
+
+1. **Atajo rápido (Recomendado):**
+   - Presiona **`Alt + Shift + Q`** en Windows/Linux (o **`Option + Shift + Q`** en Mac).
+   - En menos de 2 segundos, todas las preguntas de la página serán analizadas y marcadas.
+2. **Botón en pantalla:**
+   - Haz clic sobre el botón flotante circular **"AI"**.
+3. **Menú de la extensión:**
+   - Abre el popup de la extensión y presiona el botón verde **"Process Questions on this Page"**.
+
+---
+
+### 🎛️ Opciones del Menú (Popup)
+
+| Ajuste | Por Defecto | Función |
+| :--- | :---: | :--- |
+| **Gemini API Key** | Vacío | Tu clave personal de Gemini. Se guarda de forma segura en tu navegador. |
+| **Gemini Model** | `gemini-3.5-flash-lite` | Modelo de IA para resolver. Recomendado por su balance entre velocidad y cuota libre. |
+| **Show AI Answers** | `Activado` | Muestra un recuadro azul explicativo con el razonamiento debajo de cada pregunta. |
+| **Auto-select Answers** | `Activado` | Hace clic y marca automáticamente las opciones correctas en el examen. |
+| **Modo Sigilo** | `Desactivado` | Oculta los recuadros de la IA, el botón flotante y los bordes verdes. Solo marca las respuestas silenciosamente. |
+| **Process on Page Switch** | `Activado` | Si avanzas a otra pregunta, detecta el cambio automáticamente. |
+
+---
+
+<br>
+
+---
+
+## 🇬🇧 English Version
+
+### 🌟 What is NetAcad-Wizzard?
+
+**NetAcad-Wizzard** is a Manifest V3 browser extension built to automate and streamline answering dynamically loaded quizzes and exams on Cisco platforms (**Cisco NetAcad** and **Skills For All**).
+
+Unlike basic scripts that only scrape text, NetAcad-Wizzard traverses deep **Shadow DOM** and nested *iframes*, batches questions into structured JSON payloads for **Google Gemini AI**, and **automatically selects the correct options on screen**.
+
+---
+
+### ⚡ Key & Enhanced Features
+
+- 🎯 **Auto-Select Answers:** Automatically simulates mouse click events on the correct choices. Supports:
+  - Single-choice questions (radio buttons).
+  - Multiple-choice questions (checkboxes).
+  - Matching questions (*object-matching / category pairing*).
+- 🥷 **Stealth Mode:** Hides the AI assistant boxes, the floating button, and green border outlines. Answers are selected silently without leaving any visual clues on screen.
+- 🛡️ **Error 429 Quota Fallback:** Google Gemini limits free tier users to 500 requests per day per model. If a model reaches its quota limit, NetAcad-Wizzard automatically falls back to the next available model (`gemini-3.5-flash-lite`, `gemini-3.5-flash`, etc.) without breaking your exam.
+- 🚀 **High-Speed Marking:** Optimized delay (~250 ms per option) to ensure natural yet fast marking without UI lag or freezes.
+- 📦 **Batch Question Processing:** All questions on the current page are packaged into a single JSON API request, saving up to 90% of token usage and speeding up response times.
+- ✋ **Safe Exam Submission:** The extension automatically fills in the answers, but **never clicks the final submit button**, leaving submission control in your hands.
+- 🖱️ **Draggable Floating Button:** A lightweight circular "AI" button on screen that you can drag anywhere so it doesn't obstruct diagrams.
+
+---
+
+### ⚙️ How to Configure
+
+#### 1. Get a Free Google Gemini API Key:
+1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. Sign in with your Google account.
+3. Click **"Create API key"**.
+4. Copy your API key (starts with `AIzaSy...`).
+
+#### 2. Save your key into the extension:
+1. Click the NetAcad-Wizzard extension icon in your browser toolbar.
+2. Paste your API Key into the **Gemini API Key** field.
+3. Select the recommended model (**`gemini-3.5-flash-lite`**).
+4. Customize your toggles (e.g. enable **Stealth Mode** if you want invisible operation).
+5. Click **"Save Settings"**.
+
+---
+
+### 📦 Step-by-Step Installation
+
+Compatible with any Chromium-based browser (**Chrome**, **Edge**, **Brave**, **Opera**, etc.):
+
+1. **Clone or Download the repo:**
+   ```bash
+   git clone https://github.com/YungRodri/NetAcad-Wizzard.git
+   ```
+   Or download as ZIP (**Code > Download ZIP**) and extract it.
+2. **Open your browser extensions manager:**
+   - Chrome / Brave: `chrome://extensions/`
+   - Edge: `edge://extensions/`
+3. **Enable "Developer mode":**
+   - Toggle the switch in the top-right corner.
+4. **Load the extension:**
+   - Click **"Load unpacked"** in the top-left corner.
+   - Select the folder where this project is located (the folder containing `manifest.json`).
+5. **Pin the extension:**
+   - Click the extensions puzzle icon 🧩 in the toolbar and pin NetAcad-Wizzard.
+
+---
+
+### 🚀 Daily Usage
+
+While inside a NetAcad or SkillsForAll assessment:
+
+1. **Keyboard Shortcut (Recommended):**
+   - Press **`Alt + Shift + Q`** on Windows/Linux (or **`Option + Shift + Q`** on macOS).
+   - In 1 to 2 seconds, all questions on the page will be resolved and marked.
+2. **On-screen Floating Button:**
+   - Click the circular blue **"AI"** button.
+3. **Popup Menu:**
+   - Click the extension icon and hit **"Process Questions on this Page"**.
+
+---
+
+### 🎛️ Popup Settings
+
+| Setting | Default | Description |
+| :--- | :---: | :--- |
+| **Gemini API Key** | Empty | Your personal Gemini API key, stored locally in your browser storage. |
+| **Gemini Model** | `gemini-3.5-flash-lite` | Active AI model. Highly recommended for its fast response and generous free quota. |
+| **Show AI Answers** | `Enabled` | Shows a blue box below each question with the AI's reasoning. |
+| **Auto-select Answers** | `Enabled` | Automatically clicks and marks the correct options on the quiz page. |
+| **Modo Sigilo (Stealth Mode)** | `Disabled` | Hides all assistant boxes, the floating button, and outlines. Selects answers completely invisibly. |
+| **Process on Page Switch** | `Enabled` | Automatically scrapes new questions when navigating between lesson pages. |
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
