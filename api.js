@@ -1,4 +1,11 @@
-const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
+const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
+const DEFAULT_GEMINI_API_KEY = "";
+
+const FALLBACK_MODELS = [
+  "gemini-3.5-flash-lite",
+  "gemini-3.5-flash",
+  "gemini-3.1-flash-lite",
+];
 
 function buildGeminiUrl(model) {
   return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -7,7 +14,7 @@ function buildGeminiUrl(model) {
 async function getProviderConfig() {
   const stored = await chrome.storage.sync.get(["geminiApiKey", "geminiModel"]);
   return {
-    apiKey: stored.geminiApiKey || "",
+    apiKey: stored.geminiApiKey || DEFAULT_GEMINI_API_KEY,
     model: stored.geminiModel || DEFAULT_GEMINI_MODEL,
   };
 }
@@ -33,32 +40,45 @@ Possible Answers:
     prompt += `${i + 1}. ${ans}\n`;
   });
 
-  try {
-    const response = await fetch(buildGeminiUrl(cfg.model), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": effectiveKey,
-      },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    });
+  const modelsToTry = [cfg.model, ...FALLBACK_MODELS.filter((m) => m !== cfg.model)];
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("Gemini API Error:", errorData);
-      return `Error calling Gemini API: ${response.status} ${response.statusText}.`;
+  for (const model of modelsToTry) {
+    try {
+      const response = await fetch(buildGeminiUrl(model), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": effectiveKey,
+        },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      });
+
+      if (response.status === 429) {
+        console.warn(`Gemini Model ${model} quota exceeded (429). Trying fallback...`);
+        continue;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Gemini API Error:", errorData);
+        return `Error calling Gemini API: ${response.status} ${response.statusText}.`;
+      }
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        console.error("Unexpected Gemini response:", data);
+        return "Error: Could not extract answer from Gemini response.";
+      }
+      if (model !== cfg.model) {
+        chrome.storage.sync.set({ geminiModel: model });
+      }
+      return text.trim();
+    } catch (error) {
+      console.error(`Error fetching from Gemini API with model ${model}:`, error);
     }
-    const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      console.error("Unexpected Gemini response:", data);
-      return "Error: Could not extract answer from Gemini response.";
-    }
-    return text.trim();
-  } catch (error) {
-    console.error("Error fetching from Gemini API:", error);
-    return "Error connecting to Gemini API. Check console.";
   }
+
+  return "Error: Cuota diaria de Gemini excedida en todos los modelos disponibles (429). Espera a que se reinicie o cambia de cuenta.";
 }
 
 function buildBatchPrompt(questionsDataArray) {
@@ -113,36 +133,56 @@ async function getAiAnswersForBatch(questionsDataArray, apiKey) {
   }
 
   const prompt = buildBatchPrompt(questionsDataArray);
+  const modelsToTry = [cfg.model, ...FALLBACK_MODELS.filter((m) => m !== cfg.model)];
 
-  try {
-    const response = await fetch(buildGeminiUrl(cfg.model), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": effectiveKey,
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" },
-      }),
-    });
+  let lastError = null;
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("Gemini Batch Error:", errorData);
-      return {
-        error: `Error calling Gemini API: ${response.status} ${response.statusText}. Details: ${JSON.stringify(errorData)}`,
-      };
+  for (const model of modelsToTry) {
+    try {
+      const response = await fetch(buildGeminiUrl(model), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": effectiveKey,
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json" },
+        }),
+      });
+
+      if (response.status === 429) {
+        console.warn(`Gemini Batch: Model ${model} quota exceeded (429). Trying fallback model...`);
+        lastError = "Cuota diaria excedida (429) en el modelo actual. Probando siguiente modelo...";
+        continue;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Gemini Batch Error:", errorData);
+        return {
+          error: `Error calling Gemini API: ${response.status} ${response.statusText}. Details: ${JSON.stringify(errorData)}`,
+        };
+      }
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        console.error("Unexpected Gemini batch response:", data);
+        return { error: "Error: Could not extract answers from Gemini batch response." };
+      }
+
+      if (model !== cfg.model) {
+        chrome.storage.sync.set({ geminiModel: model });
+      }
+
+      return parseBatchAnswers(text, questionsDataArray.length);
+    } catch (error) {
+      console.error(`Error fetching from Gemini batch API with model ${model}:`, error);
+      lastError = error.toString();
     }
-    const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      console.error("Unexpected Gemini batch response:", data);
-      return { error: "Error: Could not extract answers from Gemini batch response." };
-    }
-    return parseBatchAnswers(text, questionsDataArray.length);
-  } catch (error) {
-    console.error("Error fetching from Gemini batch API:", error);
-    return { error: "Error connecting to Gemini API for batch. Check console." };
   }
+
+  return {
+    error: `Error 429: Cuota diaria de peticiones de Gemini alcanzada en todos los modelos. Espera a que se reinicie o crea una nueva API Key. (${lastError})`,
+  };
 }

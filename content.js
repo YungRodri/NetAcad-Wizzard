@@ -241,7 +241,16 @@ if (typeof window.scrapeData !== "function") {
 }
 
 const autoRunScraper = async () => {
-  if (!document.querySelector("app-root")) {
+  let appRoot = document.querySelector("app-root");
+  if (!appRoot) {
+    for (let i = 0; i < 4; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      appRoot = document.querySelector("app-root");
+      if (appRoot) break;
+    }
+  }
+
+  if (!appRoot) {
     const frameContext = window.top === window ? "main page" : "an iframe";
     console.debug(
       `NetAcad Scraper: autoRunScraper - app-root not found in this frame context (${frameContext}). Auto-run aborted.`,
@@ -261,8 +270,14 @@ const autoRunScraper = async () => {
     "geminiApiKey",
     "showAnswers",
   ]);
+  const defaultKey = typeof DEFAULT_GEMINI_API_KEY !== "undefined" ? DEFAULT_GEMINI_API_KEY : "";
+  const apiKey = storedData.geminiApiKey || defaultKey;
+  if (!storedData.geminiApiKey) {
+    chrome.storage.sync.set({ geminiApiKey: defaultKey });
+  }
+
   if (
-    storedData.geminiApiKey &&
+    apiKey &&
     (typeof storedData.showAnswers === "undefined" ||
       storedData.showAnswers === true)
   ) {
@@ -270,14 +285,14 @@ const autoRunScraper = async () => {
       "NetAcad Scraper: API key found and showAnswers enabled. Attempting initial scrape and setting up observer.",
     );
     if (typeof window.scrapeData === "function") {
-      await window.scrapeData(); // Perform initial scrape
-      initMutationObserver(); // Setup observer after initial scrape attempt
+      await window.scrapeData();
+      initMutationObserver();
     } else {
       console.error(
         "NetAcad Scraper: Critical - window.scrapeData not defined for auto-run and observer setup.",
       );
     }
-  } else if (storedData.geminiApiKey && storedData.showAnswers === false) {
+  } else if (apiKey && storedData.showAnswers === false) {
     console.debug(
       "NetAcad Scraper: showAnswers is disabled. Skipping initial scrape and observer.",
     );
@@ -287,7 +302,6 @@ const autoRunScraper = async () => {
     );
   }
 };
-
 autoRunScraper();
 injectFloatingButton();
 

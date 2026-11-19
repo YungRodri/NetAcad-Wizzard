@@ -8,10 +8,18 @@
     "scripting",
     "storage"
   ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*",
+    "*://*.netacad.com/*",
+    "*://*.skillsforall.com/*",
+    "*://*.cisco.com/*"
+  ],
   "content_scripts": [
     {
       "matches": [
-        "*://*.netacad.com/*"
+        "*://*.netacad.com/*",
+        "*://*.skillsforall.com/*",
+        "*://*.cisco.com/*"
       ],
       "js": [
         "api.js",

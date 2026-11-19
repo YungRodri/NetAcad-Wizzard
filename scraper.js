@@ -8,7 +8,7 @@ async function scrapeData(currentAttempt = 1) {
   );
 
   const storedData = await chrome.storage.sync.get(["geminiApiKey"]);
-  const apiKey = storedData.geminiApiKey;
+  const apiKey = storedData.geminiApiKey || (typeof DEFAULT_GEMINI_API_KEY !== 'undefined' ? DEFAULT_GEMINI_API_KEY : '');
 
   let mcqViewElements = [];
   let earlyExitReason = "";
@@ -177,6 +177,15 @@ async function scrapeData(currentAttempt = 1) {
       // A more optimized way would be to have a separate UI update function.
       await processSingleQuestion(questionData.mcqViewElement, questionData.originalIndex, apiKey, finalAnswerToShow);
     }
+    // Auto-advance check
+    chrome.storage.sync.get(["autoAdvance"], (res) => {
+      if (res && res.autoAdvance === true && !batchError) {
+        const totalDelay = Math.min(allQuestionsData.length * 1000 + 2500, 10000);
+        setTimeout(() => {
+          tryAutoAdvance();
+        }, totalDelay);
+      }
+    });
   } else {
     console.debug("NetAcad Scraper (scraper.js): No valid questions extracted to send for batch processing.");
     // If there were mcqViewElements but none yielded valid Q&A, their UIs would have been handled
@@ -184,4 +193,19 @@ async function scrapeData(currentAttempt = 1) {
   }
 
   return true;
-} 
+}
+
+function tryAutoAdvance() {
+  const allButtons = Array.from(document.querySelectorAll("button, a.btn, .btn, input[type='button'], .page-nav__btn, .nav-btn, .next-btn"));
+  const nextBtn = allButtons.find((btn) => {
+    const text = (btn.innerText || btn.value || btn.getAttribute("aria-label") || btn.title || "").toLowerCase().trim();
+    const isNext = text === "next" || text === "siguiente" || text.includes("next page") || text.includes("siguiente") || btn.classList.contains("js-btn-next") || btn.classList.contains("btn-next");
+    const isSubmit = text.includes("submit") || text.includes("enviar") || text.includes("finish") || text.includes("finalizar") || text.includes("entregar");
+    return isNext && !isSubmit && !btn.disabled && btn.offsetParent !== null;
+  });
+
+  if (nextBtn) {
+    console.debug("NetAcad Scraper: Auto-advancing to next question/page.");
+    nextBtn.click();
+  }
+}

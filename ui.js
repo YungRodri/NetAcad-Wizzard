@@ -532,7 +532,177 @@ function getFriendlyGeminiErrorMessage(errorString) {
   return null;
 }
 
-async function handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDisplay, index) {
+
+function normalizeText(str) {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .replace(/<[^>]*>/g, "")
+    .replace(/^[a-z0-9][\.\)\:\-]\s*/i, "")
+    .replace(/^[\*\-\u2022]\s*/, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isOptionMatch(aiTarget, optionText) {
+  const nAi = normalizeText(aiTarget);
+  const nOpt = normalizeText(optionText);
+  if (!nAi || !nOpt) return false;
+  if (nAi === nOpt) return true;
+  if (nAi.length >= 3 && (nOpt.includes(nAi) || nAi.includes(nOpt))) return true;
+  return false;
+}
+
+function simulateHumanClick(targetElement, inputElement) {
+  if (!targetElement) return;
+  const rect = targetElement.getBoundingClientRect();
+  const clientX = rect.left + Math.max(5, rect.width / 2);
+  const clientY = rect.top + Math.max(5, rect.height / 2);
+  const eventOptions = {
+    bubbles: true,
+    cancelable: true,
+    view: window,
+    clientX,
+    clientY,
+  };
+
+  targetElement.dispatchEvent(new PointerEvent("pointerover", eventOptions));
+  targetElement.dispatchEvent(new MouseEvent("mouseover", eventOptions));
+  targetElement.dispatchEvent(new PointerEvent("pointerdown", eventOptions));
+  targetElement.dispatchEvent(new MouseEvent("mousedown", eventOptions));
+  targetElement.dispatchEvent(new PointerEvent("pointerup", eventOptions));
+  targetElement.dispatchEvent(new MouseEvent("mouseup", eventOptions));
+  targetElement.click();
+
+  if (inputElement) {
+    if (!inputElement.checked) {
+      inputElement.checked = true;
+      inputElement.dispatchEvent(new Event("change", { bubbles: true }));
+      inputElement.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+}
+
+async function autoSelectMCQ(mcqViewElement, answerElements, aiAnswerString, questionIndex, aiAnswerDisplay) {
+  if (!answerElements || answerElements.length === 0 || !aiAnswerString) return;
+
+  const delay = Math.min(questionIndex * 250 + Math.floor(Math.random() * 100) + 100, 2500);
+  await new Promise((r) => setTimeout(r, delay));
+
+  const separator = aiAnswerString.includes(" /// ") ? " /// " : "\n";
+  const rawTargets = aiAnswerString.split(separator).map((s) => s.trim()).filter((s) => s.length > 0);
+  if (rawTargets.length === 0) return;
+
+  let selectedCount = 0;
+  answerElements.forEach((labelEl) => {
+    const optText = labelEl.innerText.trim();
+    const isMatch = rawTargets.some((target) => isOptionMatch(target, optText));
+
+    let input = null;
+    const parent = labelEl.closest(".mcq__item, .js-item, li, div") || labelEl.parentElement;
+    if (parent) {
+      input = parent.querySelector("input[type='radio'], input[type='checkbox']");
+    }
+    if (!input && labelEl.htmlFor && mcqViewElement && mcqViewElement.shadowRoot) {
+      input = mcqViewElement.shadowRoot.getElementById(labelEl.htmlFor);
+    }
+    if (!input) {
+      input = labelEl.querySelector("input[type='radio'], input[type='checkbox']");
+    }
+
+    if (isMatch) {
+      if (input && input.checked) {
+        selectedCount++;
+        return;
+      }
+      simulateHumanClick(labelEl, input);
+      selectedCount++;
+
+      labelEl.style.transition = "outline 0.2s ease";
+      labelEl.style.outline = "2px solid #28a745";
+      labelEl.style.outlineOffset = "2px";
+    } else if (input && input.type === "checkbox" && input.checked) {
+      simulateHumanClick(labelEl, input);
+      if (input.checked) {
+        input.checked = false;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+  });
+
+  if (selectedCount > 0 && aiAnswerDisplay) {
+    if (!aiAnswerDisplay.querySelector(".auto-select-badge")) {
+      const checkBadge = document.createElement("span");
+      checkBadge.className = "auto-select-badge";
+      checkBadge.style.cssText = "color: #28a745; font-weight: bold; margin-left: 8px; font-size: 0.9em;";
+      checkBadge.textContent = "\u2713 Auto-marcada";
+      aiAnswerDisplay.appendChild(checkBadge);
+    }
+  }
+}
+
+async function autoSelectMatching(omvElement, aiAnswerString, questionIndex, aiAnswerDisplay) {
+  if (!omvElement || !omvElement.shadowRoot || !aiAnswerString) return;
+  const sr = omvElement.shadowRoot;
+  const pairs = aiAnswerString.split(" /// ");
+
+  const delay = Math.min(questionIndex * 250 + Math.floor(Math.random() * 100) + 100, 2500);
+  await new Promise((r) => setTimeout(r, delay));
+
+  let matchedCount = 0;
+  for (const pair of pairs) {
+    const m = pair.match(/([A-Z])\s*:\s*(.+)/i);
+    if (!m) continue;
+    const letter = m[1].toUpperCase();
+    const targetText = m[2].trim();
+
+    const catBtn = Array.from(sr.querySelectorAll(".objectMatching-category-item")).find((b) => {
+      const l = b.querySelector(".category-item-number")?.innerText.trim();
+      return l && l.toUpperCase() === letter;
+    });
+
+    const optBtn = Array.from(sr.querySelectorAll(".objectMatching-option-item")).find((b) => {
+      return isOptionMatch(targetText, b.innerText);
+    });
+
+    if (catBtn && optBtn) {
+      simulateHumanClick(optBtn);
+      await new Promise((r) => setTimeout(r, 180));
+      simulateHumanClick(catBtn);
+      await new Promise((r) => setTimeout(r, 180));
+      matchedCount++;
+    }
+  }
+
+  if (matchedCount > 0 && aiAnswerDisplay) {
+    if (!aiAnswerDisplay.querySelector(".auto-select-badge")) {
+      const checkBadge = document.createElement("span");
+      checkBadge.className = "auto-select-badge";
+      checkBadge.style.cssText = "color: #28a745; font-weight: bold; margin-left: 8px; font-size: 0.9em;";
+      checkBadge.textContent = "\u2713 Emparejada";
+      aiAnswerDisplay.appendChild(checkBadge);
+    }
+  }
+}
+
+async function triggerAutoSelectIfEnabled(mcqViewElement, answerElements, isMatching, aiAnswerString, questionIndex, aiAnswerDisplay) {
+  try {
+    const sync = await chrome.storage.sync.get(["autoSelectAnswers"]);
+    const enabled = typeof sync.autoSelectAnswers === "boolean" ? sync.autoSelectAnswers : true;
+    if (!enabled) return;
+
+    if (isMatching) {
+      await autoSelectMatching(mcqViewElement, aiAnswerString, questionIndex, aiAnswerDisplay);
+    } else {
+      await autoSelectMCQ(mcqViewElement, answerElements, aiAnswerString, questionIndex, aiAnswerDisplay);
+    }
+  } catch (e) {
+    console.debug("NetAcad Auto-Select notice:", e);
+  }
+}
+
+async function handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDisplay, index, mcqViewElement = null, answerElements = [], isMatching = false) {
   if (!aiAnswerDisplay) return;
 
   if (!apiKey) {
@@ -546,7 +716,7 @@ async function handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDi
     questionText === "Question text not found" ||
     questionText.startsWith("Error:")
   ) {
-    aiAnswerDisplay.textContent = questionText; // Reshow extraction error
+    aiAnswerDisplay.textContent = questionText;
     console.warn(
       `NetAcad UI: refreshAction for Q${
         index + 1
@@ -587,13 +757,16 @@ async function handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDi
       aiAnswerDisplay.textContent = "AI Suggestion: No valid answer content received (single refresh).";
       console.warn(`NetAcad UI: Q${index + 1} (single refresh) AI response was empty or only whitespace after processing: '${rawAiResponse}'`);
     }
+
+    if (mcqViewElement) {
+      triggerAutoSelectIfEnabled(mcqViewElement, answerElements, isMatching, rawAiResponse, index, aiAnswerDisplay);
+    }
   } else if (rawAiResponse && rawAiResponse.toLowerCase().startsWith("error:")) {
-    // Improved error handling
     const friendlyMsg = getFriendlyGeminiErrorMessage(rawAiResponse);
     if (friendlyMsg) {
       aiAnswerDisplay.textContent = friendlyMsg;
     } else {
-      aiAnswerDisplay.textContent = rawAiResponse; // Display the error message directly
+      aiAnswerDisplay.textContent = rawAiResponse;
     }
     console.error(`NetAcad UI: Error displayed for Q${index + 1} (single refresh): ${rawAiResponse}`);
   } else {
@@ -610,7 +783,6 @@ async function handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDi
 async function processSingleQuestion(mcqViewElement, index, apiKey, preFetchedAiAnswer = null) {
   const uiContainerId = `netacad-ai-q-${index}`;
 
-  // Always attempt to remove old UI from mcqViewElement's shadowRoot first
   if (mcqViewElement && mcqViewElement.shadowRoot) {
     const existingUiInMcqSR = mcqViewElement.shadowRoot.querySelector(
       `#${uiContainerId}`
@@ -624,11 +796,9 @@ async function processSingleQuestion(mcqViewElement, index, apiKey, preFetchedAi
       existingUiInMcqSR.remove();
     }
   }
-  // Note: Removal from questionTextElement.parentNode is handled during injection phase
 
   const { uiContainer, aiAnswerDisplay, refreshButton } = createAiAssistantUI(uiContainerId, index);
 
-  // --- 2. Extract Question and Answers (dispatch by element type) ---
   const isMatching = mcqViewElement && mcqViewElement.tagName && mcqViewElement.tagName.toLowerCase() === "object-matching-view";
   let questionText, answerElements, questionTextElement, answerTexts;
 
@@ -656,21 +826,17 @@ async function processSingleQuestion(mcqViewElement, index, apiKey, preFetchedAi
 
   updateUiAndLogsPostExtraction(aiAnswerDisplay, questionText, answerTexts, index);
 
-  // --- 4. UI Injection Logic ---
   injectUi(uiContainer, questionTextElement, mcqViewElement, uiContainerId, index);
 
-  // --- 5. Refresh Action and Initial Fetch/Status ---
   refreshButton.addEventListener("click", () => 
-    handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDisplay, index)
+    handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDisplay, index, mcqViewElement, answerElements, isMatching)
   );
 
-  // Handle AI answer display (pre-fetched or initial call)
   if (preFetchedAiAnswer === "BATCH_PROCESSING_STARTED") {
     aiAnswerDisplay.textContent = "Batch processing... Please wait.";
     console.debug(`NetAcad UI: Q${index + 1} waiting for batched AI answer.`);
-  } else if (preFetchedAiAnswer) { // An actual answer or error string is provided
+  } else if (preFetchedAiAnswer) {
     if (preFetchedAiAnswer.toLowerCase().startsWith("error:")) {
-      // Improved error handling
       const friendlyMsg = getFriendlyGeminiErrorMessage(preFetchedAiAnswer);
       if (friendlyMsg) {
         aiAnswerDisplay.textContent = friendlyMsg;
@@ -690,16 +856,18 @@ async function processSingleQuestion(mcqViewElement, index, apiKey, preFetchedAi
       } else {
         aiAnswerDisplay.textContent = `AI Suggestion: ${preFetchedAiAnswer}`;
       }
+
+      triggerAutoSelectIfEnabled(mcqViewElement, answerElements, isMatching, preFetchedAiAnswer, index, aiAnswerDisplay);
     }
-  } else { // No pre-fetched answer, proceed with individual fetch if Q/A is valid
+  } else {
     if (
       questionText !== "Question text not found" &&
       !questionText.startsWith("Error:") &&
       answerTexts.length > 0 &&
-      apiKey // Only try if API key is present
+      apiKey
     ) {
       console.debug(`NetAcad UI: Q${index + 1} making individual call to AI (no pre-fetched answer).`);
-      await handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDisplay, index);
+      await handleRefreshAction(questionText, answerTexts, apiKey, aiAnswerDisplay, index, mcqViewElement, answerElements, isMatching);
     } else if (!apiKey && questionText !== "Question text not found" && !questionText.startsWith("Error:") && answerTexts.length > 0) {
       aiAnswerDisplay.textContent = "Error: Gemini API Key not set in popup.";
       console.warn(`NetAcad UI: Q${index + 1} cannot fetch AI answer - API key missing.`);
